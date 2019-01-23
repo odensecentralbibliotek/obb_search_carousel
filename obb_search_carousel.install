@@ -1,0 +1,17 @@
+<?php
+
+function obb_search_carousel_schema() {
+  $schema = array();
+  $schema['cache_obb_search_carousel'] = drupal_get_schema_unprocessed('system', 'cache'); 
+
+  return $schema;
+}
+/**
+ * Create new database table {cache_obb_search_carousel}.
+ */
+function obb_search_carousel_update_1() {
+    /*
+     * Allot of objecs are gonna get cached here..lets move to own table
+     */
+  db_create_table('cache_obb_search_carousel', drupal_get_schema_unprocessed('system', 'cache'));
+}

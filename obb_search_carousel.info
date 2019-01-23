@@ -1,0 +1,12 @@
+name = Obb search carousel
+description = Show Ting search results in a carousel
+package = Ding!
+core = "7.x"
+dependencies[] = obb_carousel
+dependencies[] = libraries
+dependencies[] = ting
+dependencies[] = ting_covers
+dependencies[] = ting_search
+dependencies[] = field_collection (1.x)
+dependencies[] = obb_search_carousel_feature
+configure = admin/config/obb_search_carousel

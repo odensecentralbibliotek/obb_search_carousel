@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the obb search carousel feature feature.
+ */
+
+include_once 'obb_search_carousel_feature.features.inc';

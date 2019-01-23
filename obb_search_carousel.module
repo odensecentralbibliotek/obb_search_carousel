@@ -1,0 +1,231 @@
+<?php
+include_once('obb_search_opensearch.inc');
+/**
+* Implements hook_theme().
+*/
+function obb_search_carousel_theme($existing, $type, $theme, $path) {
+ $theme = array();
+ $theme['node__obb_search_carousel'] = array(
+   'render element' => 'content',
+   'base hook' => 'node',
+   'template' => 'templates/obb_search_carousel',
+   'file' => 'obb_search_carousel.theme.inc',
+  );
+  
+ $items['admin/settings/obb_search_carousel'] = array(
+    'title' => 'OC Overwrites',
+    'description' => 'Configuration af oc digitalpost modul',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('obb_search_carousel_settings_admin_form'),
+    'access arguments' => array(''),
+    'file' => 'obb_search_carousel.admin.admin.inc'
+   );
+ 
+ return $theme;
+}
+/*
+ * Hook to pre-process node to make the node type display as carousel.
+ */
+function obb_search_carousel_preprocess_node(&$variables, $hook) {
+   if ($variables['type'] == 'obb_search_carousel') {
+       ini_set('max_execution_time', 3000); //300 seconds = 5 minutes
+       /*
+        * create the carousel
+        */
+       if($cached = cache_get('obb-carousel-view-'.$variables['nid'], 'cache_obb_search_carousel'))  {
+         $variables['carousel'] = render($cached->data); //we render to get js included..optimize ?
+         return;
+       }
+       $search_collections = isset($variables['field_searches']['und']) ? $variables['field_searches']['und'] : $variables['field_searches'];
+       $block = obb_search_carousel_build_render_array($search_collections,$variables['nid']);
+     // $variables['carousel'] = theme('obb_tabbed_carousel',array('tabbed_carousel' => $block->content));
+      $tmp = (array)$block;
+      
+      $variables['carousel'] = render($tmp);
+   } 
+}
+/*
+ * Helper function to build array for carousel.
+ */
+function obb_search_carousel_build_render_array($search_collections,$nid)
+{
+   $carousels = array();
+   foreach($search_collections as $field_collection_items)
+     {
+           $search_data = entity_load_single('field_collection_item',$field_collection_items['value']);
+           $search_query = $search_data->field_search_query['und'][0]['value'];
+           $results = obb_search_carousel_get_results($search_query);
+           $items = array();
+           foreach ($results['entities'] as $entity) {
+             $items[] = ting_object_view($entity, 'teaser');
+           }
+
+           $carousels[] = array(
+             '#type' => 'obb_carousel',
+             '#title' => $search_data->field_titel['und'][0]['value'],
+             //'#path' => 'ting_search_carousel/results/ajax/' . $index,
+             '#items' => $items,
+             '#lastpage' => $results['stoppage'],
+             '#hasmore' => $results['hasmore'],
+             //'#offset' => $chunk['next_offset'],
+             // Add a single placeholder to fetch more content later if there is more
+             // content.
+             //'#placeholders' => $chunk['next_offset'] > -1 ? TING_SEARCH_CAROUSEL_CHUNK_SIZE + 1 : 0,
+           );
+       }
+     $block = new stdClass();
+      $block->content = array(
+      '#type' => 'obb_tabbed_carousel',
+      '#tabs' => $carousels,
+      '#transition' => variable_get('ting_search_carousel_transition', 'fade'),
+       );
+    cache_set('obb-carousel-view-'.$nid, (array)$block, 'cache_obb_search_carousel', CACHE_PERMANENT); //we manage the these ourself.
+    return $block;
+}
+/**
+ * Implements hook_ctools_plugin_directory().
+ */
+function obb_search_carousel_ctools_plugin_directory($module, $plugin) {
+  if ($module == 'ctools' || $module == 'panels') {
+    return 'plugins/' . $plugin;
+  }
+}
+function obb_search_carousel_form_alter(&$form, &$form_state, $form_id) {
+    if($form_id == 'obb_search_carousel_node_form')
+    {
+        $form['#submit'][] = "obb_search_carousel_node_save_batch";
+    }
+}
+/*
+ * On new carousel creation , batch run the heavy parts before show.
+ */
+function obb_search_carousel_node_save_batch($form, &$form_state)
+{
+    $node = $form_state['node'];
+    entity_form_submit_build_entity('node', $node, $form, $form_state);
+    $node = node_submit($node);
+    $node->status = 0;
+    node_save($node);
+    $batch = array(
+      'operations' => array(),
+      'title' => t('Bygger søge karousel'),
+      'init_message' => t('Begynder opbygning af søge karousel...(Dette kan tage et stykke tid!)'),
+      'progress_message' => t('Processed @current out of @total.(Dette kan tage et stykke tid!)'),
+      'error_message' => t('Fejlede med at klaregøre søge karousel.'),
+    );
+    $searches = $node->field_searches['und'];
+    foreach($searches as $index => $search)
+    {
+        $search_data = entity_load_single('field_collection_item',$search['value']);
+        $query = $search_data->field_search_query['und'][0]['value'];
+        $batch['operations'][] = array(
+        'obb_search_carousel_batch_node_pre_search',
+        array($node, $query)
+      );
+        $batch['operations'][] = array(
+        'obb_search_carousel_batch_node_preload_ting_view',
+        array($node)
+      );
+    }
+    $batch['operations'][] = array(
+        'obb_search_carousel_batch_node_preload_publish',
+        array($node)
+      );
+    // Batch set.
+    batch_set($batch);
+    $goto_url = "/node/". $node->nid;
+    unset($_GET['destination']);
+    batch_process($goto_url);
+}
+function obb_search_carousel_batch_node_preload_publish($node)
+{
+    $node->status =1;
+    node_save($node);
+}
+function obb_search_carousel_batch_node_pre_search($node,$search_query,$context)
+{
+    ini_set('max_execution_time', 600); //300 seconds = 5 minutes
+    $context['results']['search'] = obb_search_carousel_get_results($search_query);
+}
+function obb_search_carousel_batch_node_preload_ting_view($node,$context)
+{
+    ini_set('max_execution_time', 600); //300 seconds = 5 minutes
+    $results = $context['results']['search'];
+    $queue = DrupalQueue::get('obb_search_carousel_full_view_mode_cache_queue');
+    foreach ($results['entities'] as $entity) {
+             ting_object_view($entity, 'teaser');
+             $queue->createItem($entity);
+             //ting_object_view($entity); //Should we queue this ?
+           }
+}
+/*
+ * Create a queue of carousels to be re-rendered
+ */
+function obb_search_carousel_cron()
+{
+  $hour = 2; //date('G');
+  $old_stamp = strtotime('-18 days');
+  if ($hour >= 0 && $hour <= 6) {
+      //Get all carousels with cache older then 1 week ?
+      $result = db_select('cache_obb_search_carousel', 'c')
+        ->fields('c')
+        ->condition('created', strtotime('-14 days'),'<')
+        ->execute()
+        ->fetchAll();
+      $queue = DrupalQueue::get('obb_search_carousel_cache_queue');
+      foreach($result as $carousel)
+      {
+          $nid_string = explode('-',$carousel->cid);
+          $nid = $nid_string[sizeof($nid_string)-1];
+          
+          $node = node_load($nid);
+          $queue->createItem($node);
+      }
+  }
+}
+/**
+ * Implement hook cron_queue_info
+ * Create a Queue for updating inspiration pages. This way we don't timeout during a long cron job.
+ * 
+ * @return array
+ *  Array declaring the queue.
+ */
+function obb_search_carousel_cron_queue_info() {
+  $queues['obb_search_carousel_cache_queue'] = array(
+    'worker callback' => 'obb_search_carousel_cron_rebuild_carousel_worker',
+    'time' => 600, //10 minutes..
+  );
+  $queues['obb_search_carousel_full_view_mode_cache_queue'] = array(
+    'worker callback' => 'obb_search_carousel_cron_prebuild_full_entity_worker',
+    'time' => 600, //10 minutes..
+  );
+  return $queues;
+}
+function obb_search_carousel_cron_prebuild_full_entity_worker($entity) {
+    ting_object_view($entity);
+}
+/**
+ * queue worker to rebuild carousels.
+ *
+ * @param node $node
+ *  The inspiration list page.
+ * @return array
+ *  A array of lightweight of objects with the data needed to show a material on a inspiration list page.
+ */
+function obb_search_carousel_cron_rebuild_carousel_worker($node) {
+    //unpublish carousel while updating.
+    $node->status = 0;
+    node_save($node);
+    
+    //clear the cache
+    $num_deleted = db_delete('cache_obb_search_carousel')
+      ->condition('cid', 'obb-carousel-view-'.$node->nid)
+      ->execute();
+    
+    //start rebuild
+    $searches = $node->field_searches['und'];
+    obb_search_carousel_build_render_array($searches,$node->nid);
+    //republish node
+    $node->status = 1;
+    node_save($node);
+}
