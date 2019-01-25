@@ -12,16 +12,29 @@ function obb_search_carousel_theme($existing, $type, $theme, $path) {
    'file' => 'obb_search_carousel.theme.inc',
   );
   
- $items['admin/settings/obb_search_carousel'] = array(
+ 
+ return $theme;
+}
+function obb_search_carousel_menu() {
+   $items = array();
+   /*$items['admin/settings/obb_search_carousel'] = array(
     'title' => 'OC Overwrites',
     'description' => 'Configuration af oc digitalpost modul',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('obb_search_carousel_settings_admin_form'),
     'access arguments' => array(''),
     'file' => 'obb_search_carousel.admin.admin.inc'
+   );*/
+   
+    $items['obb/carousel/ajax/load/%/%/%/%/%'] = array(
+     'page callback' => 'obb_search_carousel_ajax_load_items', // Render HTML
+     'description' => 'ajax load of material preview',
+     'page arguments' => array(4,5,6,7,8),
+     'type' => MENU_CALLBACK,
+     'access arguments' => array('access content'),
    );
- 
- return $theme;
+  
+   return $items;
 }
 /*
  * Hook to pre-process node to make the node type display as carousel.
@@ -45,12 +58,64 @@ function obb_search_carousel_preprocess_node(&$variables, $hook) {
    } 
 }
 /*
+ * ajax callback to load more items
+ */
+//
+function obb_search_carousel_ajax_load_items($page,$start_index,$tab_index,$result_count,$nid)
+{
+    $node = node_load($nid);
+    $search_collections = isset($node->field_searches['und']) ? $node->field_searches['und'] : $node->field_searches['field_searches'];
+    $ajax_return = "";
+    foreach($search_collections as $index => $field_collection_items)
+    {
+        if($index == $tab_index)
+        {
+            $search_data = entity_load_single('field_collection_item',$field_collection_items['value']);
+            $search_query = $search_data->field_search_query['und'][0]['value'];
+            
+            $results = obb_search_carousel_get_results($search_query,$page,$start_index,$result_count);
+            $items = array();
+            foreach ($results['entities'] as $entity) {
+             $items[] = ting_object_view($entity, 'teaser');
+           }
+           $rendered_items = array();
+           
+           foreach($items as $item)
+           {
+                $rendered_items['items'][] = array(
+                  '#type' => 'obb_carousel_item',
+                  '#content' => $item,
+                );
+               
+           }
+           $output = '<div class="item">';
+           $output .= render($rendered_items);
+           $output .= "</div>";
+           $return = array();
+           if($results['extra']['hasmore'] != 0)
+           {
+               $return['options']['loadMoreUrl'] = "/obb/carousel/ajax/load/".$results['extra']['page']."/".$results['extra']['start_index']."/".$tab_index."/".$result_count."/".$nid;
+           }
+           else
+           {
+               $return['options']['loadMoreUrl'] = '';
+           }
+           $return['items'] = $output;
+           $ajax_return = json_encode($return);
+           break;
+           
+        }
+    }
+    echo $ajax_return;
+    drupal_exit();
+}
+/*
  * Helper function to build array for carousel.
  */
 function obb_search_carousel_build_render_array($search_collections,$nid)
 {
    $carousels = array();
-   foreach($search_collections as $field_collection_items)
+   foreach($search_collections as $tab_index => $field_collection_items)
      {
            $search_data = entity_load_single('field_collection_item',$field_collection_items['value']);
            $search_query = $search_data->field_search_query['und'][0]['value'];
@@ -59,19 +124,28 @@ function obb_search_carousel_build_render_array($search_collections,$nid)
            foreach ($results['entities'] as $entity) {
              $items[] = ting_object_view($entity, 'teaser');
            }
-
-           $carousels[] = array(
+           
+            $carousel = array(
              '#type' => 'obb_carousel',
              '#title' => $search_data->field_titel['und'][0]['value'],
-             //'#path' => 'ting_search_carousel/results/ajax/' . $index,
              '#items' => $items,
-             '#lastpage' => $results['stoppage'],
-             '#hasmore' => $results['hasmore'],
+             
              //'#offset' => $chunk['next_offset'],
              // Add a single placeholder to fetch more content later if there is more
              // content.
              //'#placeholders' => $chunk['next_offset'] > -1 ? TING_SEARCH_CAROUSEL_CHUNK_SIZE + 1 : 0,
            );
+           if($results['extra']['hasmore'] != 0)
+           {
+               $result_count = 8;
+               $results['extra']['loadMoreUrl'] = "/obb/carousel/ajax/load/".$results['extra']['page']."/".$results['extra']['start_index']."/".$tab_index."/".$result_count."/".$nid;
+               //$results['extra']['nodeid'] = $nid;
+               //$results['extra']['result_count'] = 8; //get the setting from the carousel ?
+               //$results['extra']['tab_index'] = $tab_index;
+               //$results['extra']['nid'] = $nid; 
+               $carousel['#carousel_options'] = $results['extra'];
+           }
+           $carousels[] = $carousel;
        }
      $block = new stdClass();
       $block->content = array(
@@ -140,6 +214,9 @@ function obb_search_carousel_node_save_batch($form, &$form_state)
 function obb_search_carousel_batch_node_preload_publish($node)
 {
     $node->status =1;
+    $num_deleted = db_delete('cache_obb_search_carousel')
+      ->condition('cid', 'obb-carousel-view-'.$node->nid)
+      ->execute();
     node_save($node);
 }
 function obb_search_carousel_batch_node_pre_search($node,$search_query,$context)
