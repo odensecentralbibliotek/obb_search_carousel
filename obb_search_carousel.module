@@ -60,7 +60,6 @@ function obb_search_carousel_preprocess_node(&$variables, $hook) {
 /*
  * ajax callback to load more items
  */
-//
 function obb_search_carousel_ajax_load_items($page,$start_index,$tab_index,$result_count,$nid)
 {
     $node = node_load($nid);
@@ -74,13 +73,8 @@ function obb_search_carousel_ajax_load_items($page,$start_index,$tab_index,$resu
             $search_query = $search_data->field_search_query['und'][0]['value'];
             
             $results = obb_search_carousel_get_results($search_query,$page,$start_index,$result_count);
-            $items = array();
-            foreach ($results['entities'] as $entity) {
-             $items[] = ting_object_view($entity, 'teaser');
-           }
-           $rendered_items = array();
-           
-           foreach($items as $item)
+
+           foreach($results['entities'] as $item)
            {
                 $rendered_items['items'][] = array(
                   '#type' => 'obb_carousel_item',
@@ -110,6 +104,17 @@ function obb_search_carousel_ajax_load_items($page,$start_index,$tab_index,$resu
     drupal_exit();
 }
 /*
+ * Experment
+ */
+function obb_search_carouselting_object_view_ligth($entity)
+{
+    $build_array = array();
+    $item = new stdClass();
+    $item->id =  $entity->title;
+    $item->title = $entity->title;
+    
+}
+/*
  * Helper function to build array for carousel.
  */
 function obb_search_carousel_build_render_array($search_collections,$nid)
@@ -120,15 +125,11 @@ function obb_search_carousel_build_render_array($search_collections,$nid)
            $search_data = entity_load_single('field_collection_item',$field_collection_items['value']);
            $search_query = $search_data->field_search_query['und'][0]['value'];
            $results = obb_search_carousel_get_results($search_query);
-           $items = array();
-           foreach ($results['entities'] as $entity) {
-             $items[] = ting_object_view($entity, 'teaser');
-           }
            
             $carousel = array(
              '#type' => 'obb_carousel',
              '#title' => $search_data->field_titel['und'][0]['value'],
-             '#items' => $items,
+             '#items' => $results['entities'],
              
              //'#offset' => $chunk['next_offset'],
              // Add a single placeholder to fetch more content later if there is more
@@ -230,8 +231,8 @@ function obb_search_carousel_batch_node_preload_ting_view($node,$context)
     $results = $context['results']['search'];
     $queue = DrupalQueue::get('obb_search_carousel_full_view_mode_cache_queue');
     foreach ($results['entities'] as $entity) {
-             ting_object_view($entity, 'teaser');
-             $queue->createItem($entity);
+             //ting_object_view($entity, 'teaser');
+             $queue->createItem($entity); //queye the full view for rendering later. for user experiance boost.
              //ting_object_view($entity); //Should we queue this ?
            }
 }

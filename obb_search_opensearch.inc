@@ -3,7 +3,7 @@
 /* 
     Experimental module to speed up requests to the data well..
  */
-function obb_search_carousel_get_results($query,$page=1,$start_index = 0,$number_results = 24,$onlyCovers = true)
+function obb_search_carousel_get_results($query,$page=1,$start_index = 0,$number_results = 40,$onlyCovers = true)
 {
     module_load_include('client.inc', 'ting');
     $options = array();
@@ -11,7 +11,7 @@ function obb_search_carousel_get_results($query,$page=1,$start_index = 0,$number
     $options['collectionType'] = 'manifestation';
     $entities_found_with_covers = array();
     
-    $results_pr_page =24;
+    $results_pr_page =50; // 50 is max.
     $max_pages_to_crawl = 20;
     $crawled_pages = 0;
     $stop_page = 0;
@@ -42,21 +42,19 @@ function obb_search_carousel_get_results($query,$page=1,$start_index = 0,$number
         if($onlyCovers)
         {
             foreach ($covers as $id => $path) {
-                $entities_found_with_covers[$id] = ding_entity_load($entities[$id],'ting_object'); //can we make it faster ?
+                $entities_found_with_covers[]['#object'] = ding_entity_load($entities[$id],'ting_object'); //can we make it faster ?
                 if(sizeof($entities_found_with_covers) == $number_results)
                 {
+                    $last_found_cover = $id;
                     $stop = true;
                     break;
                 }
             }
         }
         $crawled_pages++;
-        $stop_page = $page + $crawled_pages;
-        
+        $stop_page = $page + $crawled_pages; 
         
     }while($stop == false && $search_result->more != 0 && $crawled_pages <= $max_pages_to_crawl);
-    $cover_keys = array_keys($entities_found_with_covers);
-    $last_found_cover = end($cover_keys);
     $last_mat_index = obb_search_carousel_last_material_index($entities,$last_found_cover);
     return array('entities' => $entities_found_with_covers,'extra' => array('page' => $stop_page,'hasmore' => $search_result->more,'start_index' =>  $last_mat_index,'onlycovers' => $onlyCovers));
 }
