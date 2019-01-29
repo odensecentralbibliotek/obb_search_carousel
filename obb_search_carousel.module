@@ -62,6 +62,11 @@ function obb_search_carousel_preprocess_node(&$variables, $hook) {
  */
 function obb_search_carousel_ajax_load_items($page,$start_index,$tab_index,$result_count,$nid)
 {
+    $key = $page .":" . $start_index .":".$tab_index.":".$result_count.":".$nid;
+    if($cached = cache_get('obb-carousel-ajax-page-load-'.$key, 'cache_obb_search_carousel'))  {
+        echo $cached->data; //we render to get js included..optimize ?
+        drupal_exit();
+    }
     $node = node_load($nid);
     $search_collections = isset($node->field_searches['und']) ? $node->field_searches['und'] : $node->field_searches['field_searches'];
     $ajax_return = "";
@@ -100,6 +105,7 @@ function obb_search_carousel_ajax_load_items($page,$start_index,$tab_index,$resu
            
         }
     }
+    cache_set('obb-carousel-ajax-page-load-'.$key, $ajax_return, 'cache_obb_search_carousel', CACHE_PERMANENT); //we manage the these ourself.
     echo $ajax_return;
     drupal_exit();
 }
@@ -154,7 +160,7 @@ function obb_search_carousel_build_render_array($search_collections,$nid)
       '#tabs' => $carousels,
       '#transition' => variable_get('ting_search_carousel_transition', 'fade'),
        );
-    cache_set('obb-carousel-view-'.$nid, (array)$block, 'cache_obb_search_carousel', CACHE_PERMANENT); //we manage the these ourself.
+    cache_set('obb-carousel-view-'.$nid, (array)$block, 'cache_obb_search_carousel', REQUEST_TIME + variable_get('ting_object_view_lifetime', TING_DEFAULT_CACHE_LIFETIME)); //we manage the these ourself.
     return $block;
 }
 /**
