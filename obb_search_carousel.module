@@ -77,8 +77,8 @@ function obb_search_carousel_ajax_load_items($page,$start_index,$tab_index,$resu
             $search_data = entity_load_single('field_collection_item',$field_collection_items['value']);
             $search_query = $search_data->field_search_query['und'][0]['value'];
             
-            $results = obb_search_carousel_get_results($search_query,$page,$start_index,$result_count);
-
+           $results = obb_search_carousel_get_results($search_query,$page,$start_index,$result_count);
+           $rendered_items = array();
            foreach($results['entities'] as $item)
            {
                 $rendered_items['items'][] = array(
@@ -87,20 +87,29 @@ function obb_search_carousel_ajax_load_items($page,$start_index,$tab_index,$resu
                 );
                
            }
-           $output = '<div class="item">';
-           $output .= render($rendered_items);
-           $output .= "</div>";
-           $return = array();
-           if($results['extra']['hasmore'] != 0)
+           if(sizeof($rendered_items) != 0)
            {
-               $return['options']['loadMoreUrl'] = "/obb/carousel/ajax/load/".$results['extra']['page']."/".$results['extra']['start_index']."/".$tab_index."/".$result_count."/".$nid;
+            $output = '<div class="item">';
+            $output .= render($rendered_items);
+            $output .= "</div>";
+           
+            $return = array();
+
+            if($results['extra']['hasmore'] != 0)
+            {
+                $return['options']['loadMoreUrl'] = "/obb/carousel/ajax/load/".$results['extra']['page']."/".$results['extra']['start_index']."/".$tab_index."/".$result_count."/".$nid;
+            }
+            else
+            {
+                $return['options']['loadMoreUrl'] = '';
+            }
+            $return['items'] = $output;
+            $ajax_return = json_encode($return);
            }
            else
            {
-               $return['options']['loadMoreUrl'] = '';
+               $ajax_return = "";
            }
-           $return['items'] = $output;
-           $ajax_return = json_encode($return);
            break;
            
         }

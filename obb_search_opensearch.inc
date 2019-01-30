@@ -3,7 +3,7 @@
 /* 
     Experimental module to speed up requests to the data well..
  */
-function obb_search_carousel_get_results($query,$page=1,$start_index = 0,$number_results = 40,$onlyCovers = true)
+function obb_search_carousel_get_results($query,$page=1,$start_index = 0,$number_results = 48,$onlyCovers = true)
 {
     module_load_include('client.inc', 'ting');
     $options = array();
@@ -54,7 +54,7 @@ function obb_search_carousel_get_results($query,$page=1,$start_index = 0,$number
         $crawled_pages++;
         $stop_page = $page + $crawled_pages; 
         
-    }while($stop == false && $search_result->more != 0 && $crawled_pages <= $max_pages_to_crawl);
+    }while($stop == false && $search_result->more != 0 ); //&& $crawled_pages <= $max_pages_to_crawl); No Limits
     $last_mat_index = obb_search_carousel_last_material_index($entities,$last_found_cover);
     return array('entities' => $entities_found_with_covers,'extra' => array('page' => $stop_page,'hasmore' => $search_result->more,'start_index' =>  $last_mat_index,'onlycovers' => $onlyCovers));
 }
