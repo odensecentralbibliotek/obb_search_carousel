@@ -18,34 +18,7 @@ $plugin = array(
 function obb_search_obb_content_type_render($subtype, $conf, $panel_args, $context) {
   $block = new stdClass();
 
-  if ($searches = variable_get('ting_carousel_search_queries', array())) {
-    $carousels = array();
-    foreach ($searches as $index => $search) {
-      $chunk = _ting_search_carousel_get_frontpage_entities($index, 0, TING_SEARCH_CAROUSEL_CHUNK_SIZE, FALSE);
-
-      $items = array();
-      foreach ($chunk['entities'] as $entity) {
-        $items[] = ting_object_view($entity, 'teaser');
-      }
-
-      $carousels[] = array(
-        '#type' => 'obb_carousel',
-        '#title' => $search['title'],
-        '#path' => 'ting_search_carousel/results/ajax/' . $index,
-        '#items' => $items,
-        '#offset' => $chunk['next_offset'],
-        // Add a single placeholder to fetch more content later if there is more
-        // content.
-        '#placeholders' => $chunk['next_offset'] > -1 ? TING_SEARCH_CAROUSEL_CHUNK_SIZE + 1 : 0,
-      );
-    }
-
-    $block->content = array(
-      '#type' => 'obb_tabbed_carousel',
-      '#tabs' => $carousels,
-      '#transition' => variable_get('ting_search_carousel_transition', 'fade'),
-    );
-  }
+  
 
   return $block;
 }
@@ -54,7 +27,7 @@ function obb_search_obb_content_type_render($subtype, $conf, $panel_args, $conte
  * Return the pane titles.
  */
 function obb_search_obb_content_type_admin_title($subtype, $conf, $context) {
-  return t('Ting search carousel');
+  return t('Obb search carousel');
 }
 
 /**

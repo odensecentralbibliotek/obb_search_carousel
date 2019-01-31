@@ -135,6 +135,7 @@ function obb_search_carouselting_object_view_ligth($entity)
 function obb_search_carousel_build_render_array($search_collections,$nid)
 {
    $carousels = array();
+   $carousel_settings = obb_carousel_init_settings();
    foreach($search_collections as $tab_index => $field_collection_items)
      {
            $search_data = entity_load_single('field_collection_item',$field_collection_items['value']);
@@ -153,12 +154,8 @@ function obb_search_carousel_build_render_array($search_collections,$nid)
            );
            if($results['extra']['hasmore'] != 0)
            {
-               $result_count = 8;
-               $results['extra']['loadMoreUrl'] = "/obb/carousel/ajax/load/".$results['extra']['page']."/".$results['extra']['start_index']."/".$tab_index."/".$result_count."/".$nid;
-               //$results['extra']['nodeid'] = $nid;
-               //$results['extra']['result_count'] = 8; //get the setting from the carousel ?
-               //$results['extra']['tab_index'] = $tab_index;
-               //$results['extra']['nid'] = $nid; 
+               $result_count = $carousel_settings['chunk_size'];
+               $results['extra']['loadMoreUrl'] = "/obb/carousel/ajax/load/".$results['extra']['page']."/".$results['extra']['start_index']."/".$tab_index."/".$result_count."/".$nid; 
                $carousel['#carousel_options'] = $results['extra'];
            }
            $carousels[] = $carousel;
