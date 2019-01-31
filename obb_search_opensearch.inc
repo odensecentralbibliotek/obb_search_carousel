@@ -13,7 +13,9 @@ function obb_search_carousel_get_results($query,$page=1,$start_index = 0,$number
     
     $results_pr_page =50; // 50 is max.
     $max_pages_to_crawl = 20;
+    $max_pages_no_covers = 15; // sometimes there are just no more covers ?!
     $crawled_pages = 0;
+    $crawled_pages_no_covers = 0;
     $stop_page = 0;
     $search_result = null;
     $stop = false;
@@ -34,21 +36,37 @@ function obb_search_carousel_get_results($query,$page=1,$start_index = 0,$number
         foreach ($collections as $collection) {
           foreach ($collection->reply->objects as $entity) {
             $entity_id = $entity->id;
-            $entities[$entity_id] = $entity_id;//why load objects we are not gonna show ? //ding_entity_load($entity_id, 'ting_object');
+            $entities[$entity_id] = $entity;//why load objects we are not gonna show ? //ding_entity_load($entity_id, 'ting_object');
           }
         }
         $covers = ting_covers_get(array_keys($entities));
         // Loop over the fetched covers and build items.
-        if($onlyCovers)
+        if($onlyCovers && sizeof($covers) != 0)
         {
+            $crawled_pages_no_covers = 0;
             foreach ($covers as $id => $path) {
-                $entities_found_with_covers[]['#object'] = ding_entity_load($entities[$id],'ting_object'); //can we make it faster ?
+                //$entities_found_with_covers[]['#object'] = ding_entity_load($id,'ting_object'); //can we make it faster ?
+                $new_entity = new TingEntity();
+                $new_entity->reply = $entities[$id];
+                $new_entity->ding_entity_id = $entities[$id]->id;
+                $new_entity->localId = $entities[$id]->localId;
+                
+                $entities_found_with_covers[]['#object'] = $new_entity;
+                
                 if(sizeof($entities_found_with_covers) == $number_results)
                 {
                     $last_found_cover = $id;
                     $stop = true;
                     break;
                 }
+            }
+        }
+        else
+        {
+            $crawled_pages_no_covers++;
+            if($crawled_pages_no_covers == $max_pages_no_covers)
+            {
+                $search_result->more = 0; // so many pages no covers...we are done!
             }
         }
         $crawled_pages++;
