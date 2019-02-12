@@ -9,7 +9,7 @@ function obb_search_carousel_theme($existing, $type, $theme, $path) {
    'render element' => 'content',
    'base hook' => 'node',
    'template' => 'templates/obb_search_carousel',
-   'file' => 'obb_search_carousel.theme.inc',
+   //'file' => 'obb_search_carousel.theme.inc',
   );
   
  
@@ -17,14 +17,14 @@ function obb_search_carousel_theme($existing, $type, $theme, $path) {
 }
 function obb_search_carousel_menu() {
    $items = array();
-   /*$items['admin/settings/obb_search_carousel'] = array(
+   $items['admin/settings/obb_search_carousel'] = array(
     'title' => 'OC Overwrites',
     'description' => 'Configuration af oc digitalpost modul',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('obb_search_carousel_settings_admin_form'),
-    'access arguments' => array(''),
-    'file' => 'obb_search_carousel.admin.admin.inc'
-   );*/
+    'access arguments' => array('administer obb_search_carousel'),
+    'file' => 'obb_search_carousel.admin.inc'
+   );
    
     $items['obb/carousel/ajax/load/%/%/%/%/%'] = array(
      'page callback' => 'obb_search_carousel_ajax_load_items', // Render HTML
@@ -35,6 +35,17 @@ function obb_search_carousel_menu() {
    );
   
    return $items;
+}
+/**
+ * Implements hook_permission().
+ */
+function obb_search_carousel_permission() {
+  return array(
+    'administer obb_search_carousel' => array(
+      'title' => t('Administrer obb search carousel'),
+      'description' => t('Giver adgang til configuere obb  search carousel'),
+    )
+  );
 }
 /*
  * Hook to pre-process node to make the node type display as carousel.
@@ -140,7 +151,7 @@ function obb_search_carousel_build_render_array($search_collections,$nid)
      {
            $search_data = entity_load_single('field_collection_item',$field_collection_items['value']);
            $search_query = $search_data->field_search_query['und'][0]['value'];
-           $results = obb_search_carousel_get_results($search_query);
+           $results = obb_search_carousel_get_results($search_query,1,0,$carousel_settings['chunk_size'] * variable_get('obb_search_carousel_preload_page_count', 6));
            
             $carousel = array(
              '#type' => 'obb_carousel',
@@ -307,10 +318,9 @@ function obb_search_carousel_cron_rebuild_carousel_worker($node) {
     $node->status = 0;
     node_save($node);
     
-    //clear the cache
-    $num_deleted = db_delete('cache_obb_search_carousel')
-      ->condition('cid', 'obb-carousel-view-'.$node->nid)
-      ->execute();
+    //clear the cache ( also in redis)
+    cache_clear_all('obb-carousel-view-'.$node->nid,'cache_obb_search_carousel');
+
     
     //start rebuild
     $searches = $node->field_searches['und'];
