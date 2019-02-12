@@ -10,4 +10,4 @@ dependencies[] = ting_search
 dependencies[] = mobile_detect
 dependencies[] = field_collection (1.x)
 dependencies[] = obb_search_carousel_feature
-configure = admin/config/obb_search_carousel
+configure = admin/settings/obb_search_carousel

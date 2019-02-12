@@ -40,7 +40,7 @@ function obb_search_carousel_menu() {
  * Implements hook_permission().
  */
 function obb_search_carousel_permission() {
-  return array(
+  return array( 
     'administer obb_search_carousel' => array(
       'title' => t('Administrer obb search carousel'),
       'description' => t('Giver adgang til configuere obb  search carousel'),
